@@ -137,7 +137,8 @@ esp_err_t http_event_handler(esp_http_client_event_t *evt) {
 }
 
 static int https_get(const char *url, payload_handler_cb payload_handler) {
-    url = "https://httpbin.org/get?test=1";
+    //url = "http://httpbin.org/get?test=1";
+    //url = "https://httpbin.org/get?test=1";
 
     ESP_LOGI(TAG, "%s", url);
 
@@ -162,7 +163,7 @@ static int https_get(const char *url, payload_handler_cb payload_handler) {
             break;
         }
         vTaskDelay(2000 / portTICK_RATE_MS);
-        ESP_LOGI(TAG, "https_get delay");
+        ESP_LOGI(TAG, "esp_http_client_perform delay 2s");
  
     }
 
@@ -375,10 +376,12 @@ extern "C" void app_main() {
 //    ESP_LOGI(TAG, "Starting webserver...");
 //    webserv_start();
 
-    console_startup();
+    //console_startup();
 
     //xTaskCreate(&https_get_task, "https_get", 8192, NULL, 5, NULL);
-    xTaskCreate(&get_updates_task, "get_updates", 8192, NULL, 5, NULL);
+    //xTaskCreate(&get_updates_task, "get_updates", 8192, NULL, 5, NULL);
+
+    get_updates_task(NULL);
 
 //    char *url = new char[256];
 //    sprintf(url, API_SEND_MESSAGE, ADMIN_ID, "startup", 0);

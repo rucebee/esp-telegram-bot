@@ -31,7 +31,7 @@ extern "C" {
 
 #define WEB_SERVER "api.telegram.org"
 #define WEB_URL "https://" WEB_SERVER "/bot" BOT_TOKEN "/"
-#define API_GET_UPDATES WEB_URL "getUpdates?timeout=3&limit=1&offset=%d"
+#define API_GET_UPDATES WEB_URL "getUpdates?timeout=30&limit=1&offset=%d"
 #define API_SEND_MESSAGE WEB_URL "sendMessage?disable_notification=true&chat_id=%d&text=%s&reply_to_message_id=%d"
 
 extern const unsigned char cert_store_pem_start[] asm("_binary_store_pem_start");
@@ -147,7 +147,7 @@ static int https_get(const char *url, payload_handler_cb payload_handler) {
     esp_http_client_config_t config = {
             .url = url,
             //.cert_pem = cert_store_pem_start,
-            //.timeout_ms = 10000,
+            .timeout_ms = 35000,
             .event_handler = http_event_handler,
             .user_data = context,
             .is_async = true,
@@ -162,9 +162,8 @@ static int https_get(const char *url, payload_handler_cb payload_handler) {
         if (err != ESP_ERR_HTTP_EAGAIN) {
             break;
         }
-        vTaskDelay(2000 / portTICK_RATE_MS);
-        ESP_LOGI(TAG, "esp_http_client_perform delay 2s");
- 
+        vTaskDelay(1000 / portTICK_RATE_MS);
+        ESP_LOGI(TAG, "https delay 1s"); 
     }
 
     if (err == ESP_OK) {
@@ -193,7 +192,7 @@ static void https_get_task(void *pvParameters) {
 
     while (1) {
         if (xQueueReceive(xHttpUrlQueue, &url, portMAX_DELAY) == pdTRUE) {
-            //https_get(url, NULL);
+            https_get(url, NULL);
 
             delete[] url;
         }
@@ -298,7 +297,8 @@ static int onGetUpdatesJSON(esp_http_client_handle_t client, void *context, char
         //https_get(url, NULL);
         //xTaskCreate(&https_get_task, "https_get_task", 8192, url, 5, NULL);
 
-        //queueHttpsGet(url);
+        queueHttpsGet(url);
+
         ESP_LOGI(TAG, "queueHttpsGet %s", url);
     }
 
@@ -318,8 +318,7 @@ static void get_updates_task(void *pvParameters) {
         static char url[STRLEN(API_GET_UPDATES) + 11];
         sprintf(url, API_GET_UPDATES, update_id + 1);
 
-        if (https_get(url, onGetUpdatesJSON) != 0)
-            vTaskDelay(3000 / portTICK_PERIOD_MS);
+        vTaskDelay(https_get(url, onGetUpdatesJSON) == ESP_OK ? 1000 / portTICK_PERIOD_MS : 5000 / portTICK_PERIOD_MS);
     }
 }
 
@@ -378,14 +377,12 @@ extern "C" void app_main() {
 
     //console_startup();
 
-    //xTaskCreate(&https_get_task, "https_get", 8192, NULL, 5, NULL);
-    //xTaskCreate(&get_updates_task, "get_updates", 8192, NULL, 5, NULL);
+    xTaskCreate(&https_get_task, "https_get", 8192, NULL, 5, NULL);
+    xTaskCreate(&get_updates_task, "get_updates", 8192, NULL, 5, NULL);
 
-    get_updates_task(NULL);
-
-//    char *url = new char[256];
-//    sprintf(url, API_SEND_MESSAGE, ADMIN_ID, "startup", 0);
-//    queueHttpsGet(url);
+   char *url = new char[256];
+   sprintf(url, API_SEND_MESSAGE, ADMIN_ID, "startup", 0);
+   queueHttpsGet(url);
 
     // xWatchdogTimer = xTimerCreate(
     //         /* Just a text name, not used by the RTOS kernel. */
